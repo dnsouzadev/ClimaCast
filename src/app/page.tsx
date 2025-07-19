@@ -48,7 +48,7 @@ export default function Home() {
     try {
       let lat: number, lon: number, cityName: string;
       if ('city' in params) {
-        const geoUrl = `http://api.openweathermap.org/geo/1.0/direct?q=${params.city}&limit=1&appid=${API_KEY}`;
+        const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${params.city}&limit=1&appid=${API_KEY}`;
         const { data } = await axios.get<GeoData[]>(geoUrl);
         if (data.length === 0) throw new Error(`Cidade "${params.city}" não encontrada.`);
         lat = data[0].lat;
@@ -57,7 +57,7 @@ export default function Home() {
       } else {
         lat = params.lat;
         lon = params.lon;
-        const reverseGeoUrl = `http://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`;
+        const reverseGeoUrl = `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`;
         const { data } = await axios.get<GeoData[]>(reverseGeoUrl);
         cityName = data[0]?.name || 'Localização Atual';
       }
