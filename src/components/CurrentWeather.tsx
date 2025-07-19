@@ -26,7 +26,7 @@ export default function CurrentWeather({ data }: CurrentWeatherProps) {
         </div>
         <div className="text-right">
           <Image
-            src={`http://openweathermap.org/img/wn/${data.weather[0].icon}@4x.png`}
+            src={`https://openweathermap.org/img/wn/${data.weather[0].icon}@4x.png`}
             alt={data.weather[0].description}
             width={96} // 4x icon size
             height={96} // 4x icon size

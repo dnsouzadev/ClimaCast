@@ -27,7 +27,7 @@ export default function DailyForecast({ data, onDayClick }: DailyForecastProps) 
               })}
             </h5>
             <Image
-              src={`http://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`}
+              src={`https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`}
               alt={item.weather[0].description}
               width={80} // 2x icon size
               height={80} // 2x icon size

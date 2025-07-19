@@ -12,7 +12,7 @@ import DetailedForecast from "@/components/DetailedForecast";
 import Footer from "@/components/Footer";
 import { getCache, setCache } from "@/utils/cache";
 import { FiAlertTriangle } from "react-icons/fi";
-import { WeatherData, ForecastData, ForecastItem, GeoData } from "@/types/weather";
+import { WeatherData, ForecastData, ForecastItem, GeoData, CachedWeather } from "@/types/weather";
 
 const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 
@@ -29,11 +29,11 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<ForecastItem | null>(null);
 
-  const fetchWeatherData = useCallback(async (params: { lat: number; lon: number } | { city: string }) => {
+  const fetchWeatherData = useCallback(async (params: { lat?: number; lon?: number; city?: string }) => {
     setLoading(true);
     setError(null);
 
-    const cacheKey = 'city' in params ? params.city.toLowerCase() : `${params.lat.toFixed(2)},${params.lon.toFixed(2)}`;
+    const cacheKey = params.city ? params.city.toLowerCase() : `${params.lat?.toFixed(2)},${params.lon?.toFixed(2)}`;
     const cachedData = getCache(cacheKey);
 
     if (cachedData) {
@@ -46,48 +46,29 @@ export default function Home() {
     }
 
     try {
-      let lat: number, lon: number, cityName: string;
-      if ('city' in params) {
-        const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${params.city}&limit=1&appid=${API_KEY}`;
-        const { data } = await axios.get<GeoData[]>(geoUrl);
-        if (data.length === 0) throw new Error(`Cidade "${params.city}" não encontrada.`);
-        lat = data[0].lat;
-        lon = data[0].lon;
-        cityName = data[0].name;
+      let apiUrl = '/api/weather';
+      if (params.city) {
+        apiUrl += `?city=${params.city}`;
+      } else if (params.lat && params.lon) {
+        apiUrl += `?lat=${params.lat}&lon=${params.lon}`;
       } else {
-        lat = params.lat;
-        lon = params.lon;
-        const reverseGeoUrl = `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`;
-        const { data } = await axios.get<GeoData[]>(reverseGeoUrl);
-        cityName = data[0]?.name || 'Localização Atual';
+        throw new Error("Latitude, longitude or city is required.");
       }
 
-      setLocation({ lat, lon, name: cityName });
-
-      const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=pt_br`;
-      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=pt_br`;
-
-      const [weatherResponse, forecastResponse] = await Promise.all([
-        axios.get<WeatherData>(weatherUrl),
-        axios.get<ForecastData>(forecastUrl),
-      ]);
+      const { data } = await axios.get(apiUrl);
       
-      const enrichedForecastList = forecastResponse.data.list.map((item: ForecastItem) => ({
-        ...item,
-        sunrise: weatherResponse.data.sys.sunrise,
-        sunset: weatherResponse.data.sys.sunset,
-      }));
-      const newForecastData: ForecastData = { ...forecastResponse.data, list: enrichedForecastList };
-
-      setWeatherData(weatherResponse.data);
-      setForecastData(newForecastData);
-      setCache(cacheKey, { weather: weatherResponse.data, forecast: newForecastData });
+      setWeatherData(data.weather);
+      setForecastData(data.forecast);
+      setLocation({ lat: data.weather.coord.lat, lon: data.weather.coord.lon, name: data.cityName });
+      setCache(cacheKey, { weather: data.weather, forecast: data.forecast });
 
     } catch (err: unknown) {
       let message = "Falha ao buscar dados.";
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 401) {
           message = "Chave de API inválida.";
+        } else if (err.response?.data?.error) {
+          message = err.response.data.error;
         } else if (err.message) {
           message = err.message;
         }

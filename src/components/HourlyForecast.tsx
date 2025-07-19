@@ -26,7 +26,7 @@ export default function HourlyForecast({ data }: HourlyForecastProps) {
               })}
             </h5>
             <Image
-              src={`http://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`}
+              src={`https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`}
               alt={item.weather[0].description}
               width={64} // 2x icon size
               height={64} // 2x icon size
