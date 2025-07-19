@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
+import { WeatherData, ForecastData, ForecastItem, GeoData } from '@/types/weather';
 
 const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 
@@ -10,8 +11,8 @@ const RETRY_DELAY_MS = 1000; // 1 segundo
 async function makeRequestWithRetry(url: string, retries = 0) {
   try {
     return await axios.get(url);
-  } catch (error: any) {
-    if (retries < MAX_RETRIES && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || axios.isAxiosError(error) && error.response?.status >= 500)) {
+  } catch (error: unknown) {
+    if (retries < MAX_RETRIES && (axios.isAxiosError(error) && error.response && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.response.status >= 500))) {
       console.warn(`Retrying ${url} (${retries + 1}/${MAX_RETRIES})...`);
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
       return makeRequestWithRetry(url, retries + 1);
@@ -32,13 +33,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    let currentLat = lat;
-    let currentLon = lon;
+    let currentLat: number | null = lat ? parseFloat(lat) : null;
+    let currentLon: number | null = lon ? parseFloat(lon) : null;
     let cityName = "";
 
     if (city) {
       const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${API_KEY}`;
-      const geoResponse = await makeRequestWithRetry(geoUrl);
+      const geoResponse = await makeRequestWithRetry(geoUrl) as { data: GeoData[] };
       if (geoResponse.data.length === 0) {
         return NextResponse.json({ error: `City "${city}" not found.` }, { status: 404 });
       }
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
       cityName = geoResponse.data[0].name;
     } else if (lat && lon) {
       const reverseGeoUrl = `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`;
-      const reverseGeoResponse = await makeRequestWithRetry(reverseGeoUrl);
+      const reverseGeoResponse = await makeRequestWithRetry(reverseGeoUrl) as { data: GeoData[] };
       cityName = reverseGeoResponse.data[0]?.name || 'Localização Atual';
     } else {
       return NextResponse.json({ error: "Latitude, longitude or city is required." }, { status: 400 });
@@ -57,11 +58,11 @@ export async function GET(request: Request) {
     const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${currentLat}&lon=${currentLon}&appid=${API_KEY}&units=metric&lang=pt_br`;
 
     const [weatherResponse, forecastResponse] = await Promise.all([
-      makeRequestWithRetry(weatherUrl),
-      makeRequestWithRetry(forecastUrl),
+      makeRequestWithRetry(weatherUrl) as Promise<{ data: WeatherData }>,
+      makeRequestWithRetry(forecastUrl) as Promise<{ data: ForecastData }>,
     ]);
 
-    const enrichedForecastList = forecastResponse.data.list.map((item: any) => ({
+    const enrichedForecastList = forecastResponse.data.list.map((item: ForecastItem) => ({
       ...item,
       sunrise: weatherResponse.data.sys.sunrise,
       sunset: weatherResponse.data.sys.sunset,
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
         'Cache-Control': 's-maxage=600, stale-while-revalidate=300', // Cache por 10 minutos, revalida em 5 minutos
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("API Route error:", error);
     if (axios.isAxiosError(error) && error.response) {
       return NextResponse.json({ error: error.response.data.message || "Failed to fetch weather data." }, { status: error.response.status });

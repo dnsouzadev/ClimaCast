@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import LocationSearch from "@/components/LocationSearch";
 import CurrentWeather from "@/components/CurrentWeather";
 import HourlyForecast from "@/components/HourlyForecast";
@@ -12,7 +12,7 @@ import DetailedForecast from "@/components/DetailedForecast";
 import Footer from "@/components/Footer";
 import { getCache, setCache } from "@/utils/cache";
 import { FiAlertTriangle } from "react-icons/fi";
-import { WeatherData, ForecastData, ForecastItem, GeoData, CachedWeather } from "@/types/weather";
+import { WeatherData, ForecastData, ForecastItem } from "@/types/weather";
 
 const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 
@@ -21,7 +21,7 @@ const convertTemp = (temp: number, unit: 'C' | 'F') => (unit === 'F' ? (temp * 9
 export default function Home() {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [forecastData, setForecastData] = useState<ForecastData | null>(null);
-  const [location, setLocation] = useState<{ lat: number; lon: number; name: string } | null>(null);
+  
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -59,7 +59,7 @@ export default function Home() {
       
       setWeatherData(data.weather);
       setForecastData(data.forecast);
-      setLocation({ lat: data.weather.coord.lat, lon: data.weather.coord.lon, name: data.cityName });
+      
       setCache(cacheKey, { weather: data.weather, forecast: data.forecast });
 
     } catch (err: unknown) {
@@ -129,8 +129,7 @@ export default function Home() {
       const dayItems = dailyForecasts[date];
       let maxTemp = -Infinity;
       let minTemp = Infinity;
-      let weatherIcon = '';
-      let weatherDescription = '';
+      
       let itemWithMaxTemp: ForecastItem | null = null;
 
       dayItems.forEach(item => {
