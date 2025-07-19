@@ -33,8 +33,8 @@ export default function DailyForecast({ data, onDayClick }: DailyForecastProps) 
               height={80} // 2x icon size
               className="mx-auto filter drop-shadow-lg"
             />
-            <p className="text-xl font-bold">{item.main.temp_max.toFixed(1)}°C</p>
-            <p className="text-gray-300 text-sm">{item.main.temp_min.toFixed(1)}°C</p>
+            <p className="text-xl font-bold">{item.main.temp_max.toFixed(0)}°C</p>
+            <p className="text-gray-300 text-sm">{item.main.temp_min.toFixed(0)}°C</p>
             <p className="text-xs text-capitalize mt-2 text-gray-200">{item.weather[0].description}</p>
           </div>
         ))}

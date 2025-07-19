@@ -3,6 +3,24 @@ import axios from 'axios';
 
 const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 
+// Configuração de retentativa
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1000; // 1 segundo
+
+async function makeRequestWithRetry(url: string, retries = 0) {
+  try {
+    return await axios.get(url);
+  } catch (error: any) {
+    if (retries < MAX_RETRIES && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || axios.isAxiosError(error) && error.response?.status >= 500)) {
+      console.warn(`Retrying ${url} (${retries + 1}/${MAX_RETRIES})...`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      return makeRequestWithRetry(url, retries + 1);
+    } else {
+      throw error;
+    }
+  }
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const lat = searchParams.get('lat');
@@ -20,7 +38,7 @@ export async function GET(request: Request) {
 
     if (city) {
       const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${API_KEY}`;
-      const geoResponse = await axios.get(geoUrl);
+      const geoResponse = await makeRequestWithRetry(geoUrl);
       if (geoResponse.data.length === 0) {
         return NextResponse.json({ error: `City "${city}" not found.` }, { status: 404 });
       }
@@ -29,7 +47,7 @@ export async function GET(request: Request) {
       cityName = geoResponse.data[0].name;
     } else if (lat && lon) {
       const reverseGeoUrl = `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`;
-      const reverseGeoResponse = await axios.get(reverseGeoUrl);
+      const reverseGeoResponse = await makeRequestWithRetry(reverseGeoUrl);
       cityName = reverseGeoResponse.data[0]?.name || 'Localização Atual';
     } else {
       return NextResponse.json({ error: "Latitude, longitude or city is required." }, { status: 400 });
@@ -39,8 +57,8 @@ export async function GET(request: Request) {
     const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${currentLat}&lon=${currentLon}&appid=${API_KEY}&units=metric&lang=pt_br`;
 
     const [weatherResponse, forecastResponse] = await Promise.all([
-      axios.get(weatherUrl),
-      axios.get(forecastUrl),
+      makeRequestWithRetry(weatherUrl),
+      makeRequestWithRetry(forecastUrl),
     ]);
 
     const enrichedForecastList = forecastResponse.data.list.map((item: any) => ({

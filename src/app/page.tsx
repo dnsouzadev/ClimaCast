@@ -107,6 +107,7 @@ export default function Home() {
 
   const processedData = useMemo(() => {
     if (!weatherData || !forecastData) return null;
+
     const convert = (data: ForecastItem | WeatherData) => {
       const temp = (t: number) => convertTemp(t, unit);
       return {
@@ -114,10 +115,52 @@ export default function Home() {
         main: { ...data.main, temp: temp(data.main.temp), feels_like: temp(data.main.feels_like), temp_min: temp(data.main.temp_min), temp_max: temp(data.main.temp_max) },
       };
     };
+
+    const dailyForecasts: { [key: string]: ForecastItem[] } = {};
+    forecastData.list.forEach(item => {
+      const date = new Date(item.dt * 1000).toLocaleDateString();
+      if (!dailyForecasts[date]) {
+        dailyForecasts[date] = [];
+      }
+      dailyForecasts[date].push(item);
+    });
+
+    const aggregatedDailyData: ForecastItem[] = Object.keys(dailyForecasts).map(date => {
+      const dayItems = dailyForecasts[date];
+      let maxTemp = -Infinity;
+      let minTemp = Infinity;
+      let weatherIcon = '';
+      let weatherDescription = '';
+      let itemWithMaxTemp: ForecastItem | null = null;
+
+      dayItems.forEach(item => {
+        if (item.main.temp_max > maxTemp) {
+          maxTemp = item.main.temp_max;
+          itemWithMaxTemp = item;
+        }
+        if (item.main.temp_min < minTemp) {
+          minTemp = item.main.temp_min;
+        }
+      });
+
+      return {
+        ...itemWithMaxTemp!, // Usar o item que tinha a temperatura máxima para o ícone
+        main: {
+          ...itemWithMaxTemp!.main,
+          temp_max: maxTemp,
+          temp_min: minTemp,
+        },
+      };
+    });
+
+    // Filtra para os próximos 5 dias, excluindo o dia atual se já tiver passado
+    const today = new Date(weatherData.dt * 1000).toLocaleDateString();
+    const fiveDayForecast = aggregatedDailyData.filter(item => new Date(item.dt * 1000).toLocaleDateString() !== today).slice(0, 5);
+
     return {
       current: convert(weatherData) as WeatherData,
       hourly: forecastData.list.slice(0, 8).map(convert) as ForecastItem[],
-      daily: forecastData.list.filter((item: ForecastItem) => new Date(item.dt * 1000).getDate() !== new Date(weatherData.dt * 1000).getDate()).filter((_item, i) => i % 8 === 0).slice(0, 5).map(convert) as ForecastItem[],
+      daily: fiveDayForecast.map(convert) as ForecastItem[],
       allHourlyForDay: (dt: number) => forecastData.list.filter((item: ForecastItem) => new Date(item.dt * 1000).getDate() === new Date(dt * 1000).getDate()).map(convert) as ForecastItem[],
     };
   }, [weatherData, forecastData, unit]);
